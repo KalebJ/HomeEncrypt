@@ -1,6 +1,7 @@
 public class Encryption {
 
    public final static int MAX_DEFAULT_SIZE = 16;
+   public final static int LEVELS_OF_ENCRYPTION = 2;
 
    private int passwordSize = MAX_DEFAULT_SIZE;
    private StringBuilder keyWord = new StringBuilder("default");
@@ -10,6 +11,7 @@ public class Encryption {
    private int offset = 0;
    private int userPIN = 0;
    private boolean forceSymbol = true;
+   private int encryptionLevels = LEVELS_OF_ENCRYPTION;
    Alphabet alpha = new Alphabet();
 
    public Encryption () {
@@ -106,8 +108,11 @@ public class Encryption {
 
    public String getEncryption (String plainText) {
       int k = 0;
+      this.clear();
+      String tempKey;
+      String output;
       while (plainText.length() < passwordSize) {
-         plainText = plainText + "A"; //This is really not a good solution for short plainText. It could create up to 15 Strings. The hope is that the majority of plain urls will be more than 15 characters.
+         plainText = plainText + plainText; //This is really not a good solution for short plainText. It could create up to 15 Strings. The hope is that the majority of plain urls will be more than 15 characters.
       }
 
       this.start = Convert(plainText.charAt((userPIN%(passwordSize-5))+5)); //Picks a value other than the www. at the beginning of a url.
@@ -139,6 +144,23 @@ public class Encryption {
          finalEncryption.setCharAt(offset%passwordSize, selectedSymbol);
       }
 
-      return finalEncryption.toString();
+      //After running the encryption once, the hashed string becomes the keyword and runs the process again.
+      //This adds variance to very similar plaintext. 
+      tempKey = this.keyWord.toString();
+      this.setKey(finalEncryption.toString());
+      this.encryptionLevels--;
+      if (this.encryptionLevels > 0) {
+    	  System.out.println(finalEncryption.toString());
+    	  System.out.println(this.encryptionLevels);
+    	  output = this.getEncryption(plainText);
+      } else {
+    	  this.encryptionLevels = this.LEVELS_OF_ENCRYPTION;
+    	  System.out.println(finalEncryption.toString());
+    	  System.out.println(this.encryptionLevels);
+    	  return finalEncryption.toString();
+      }
+      
+      this.setKey(tempKey);
+	  return output;
    }
 }
