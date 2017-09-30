@@ -302,7 +302,7 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
                      plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()).substring(0,password.getMaxSize()));
                   }
 
-                  runDblEncryption();
+                  encryptionTextbox.setText(password.getEncryption((String)plainComboBox.getSelectedItem()));
 
                   password.requireSymbol(true);
                   plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()) + saveArgText);
@@ -313,7 +313,7 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
                      plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()).substring(0,password.getMaxSize()));
                   }
 
-                  runDblEncryption();
+                  encryptionTextbox.setText(password.getEncryption((String)plainComboBox.getSelectedItem()));
 
                   if (individualLength) {
                      if (password.getMaxSize() < 10) {
@@ -769,10 +769,12 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
       SwitchScreens(openingPanel, newUserPanel);
    }
 
+   
+  /* //Integrating into Encryption.java
    private void runDblEncryption() {
-      /*Two levels of encryption happen here. First the plain text with the users key word. Then the plaintext with
+      Two levels of encryption happen here. First the plain text with the users key word. Then the plaintext with
        * the previous result set as the new key. The key is then reset to the user key.
-       */
+       
       secondLevelKey.replace(0, secondLevelKey.length(), password.getEncryption((String)plainComboBox.getSelectedItem()));
       password.setKey(secondLevelKey.toString());
       password.clear();
@@ -780,7 +782,7 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
       password.setKey(userKeyWord);
       password.clear();
    }
-
+*/
    private void SwitchScreens(JPanel oldScreen, JPanel newScreen) {
       remove(oldScreen);
       add(newScreen);
