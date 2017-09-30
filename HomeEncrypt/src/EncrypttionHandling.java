@@ -61,6 +61,7 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
    private final String LENGTHARG = "_L:";
    private final String NOSPECIALARG = "_NSP";
 
+   private String loggedInUser = "";
 
    private JPanel openingPanel = new JPanel();
    private JPanel encryptionPanel = new JPanel();
@@ -221,6 +222,7 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
             public void actionPerformed(ActionEvent e) {
                Users.put(newUserNameField.getText(), Integer.parseInt(newUserPINField.getText()));
                updateUsers();
+               writeUserArchive();
                SwitchScreens(newUserPanel, openingPanel);
             }
          });
@@ -619,6 +621,7 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
             password.setMaxSize(Integer.parseInt(in.readUTF())); //readUTF, reads in next available String
             this.clipboardBehavior = Boolean.parseBoolean(in.readUTF());
             password.requireSymbol(Boolean.parseBoolean(in.readUTF()));
+            loggedInUser = in.readUTF();
             in.close();
 
          }
@@ -634,6 +637,7 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
          out.writeUTF(String.valueOf(password.getMaxSize())); //writeUTF writes a string
          out.writeUTF(String.valueOf(this.clipboardBehavior));
          out.writeUTF(String.valueOf(password.getSymbolStatus()));
+         out.writeUTF(loggedInUser);
          out.close();
       }
       catch(IOException e) {
@@ -656,6 +660,7 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
                line = in.readLine();
                // TODO: Make sure if the file is corrupted it doesn't cause a crash.
             }
+            PIN.setSelectedItem(loggedInUser);
          } else {
             FileWriter fstream = new FileWriter("plainTextUsers.txt");
             fstream.write("");
@@ -723,6 +728,20 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
       }
    }
 
+   private void writeUserArchive() {
+      try {
+         // Writes user file
+         // Syntax: I used a BufferedWriter because I was getting strange
+         //   results with writeUTF. We can talk about it.
+         BufferedWriter out = new BufferedWriter(new FileWriter(plainTextUsers));
+         for (String user : Users.keySet()) {
+            out.write(user + "\\s" + Users.get(user) + "\n");
+         }
+         out.close();
+      } catch (IOException e) {
+      }
+   }
+
    private void loadFromClipboard() {
       try {
          plainComboBox.setSelectedItem(clip.getData(DataFlavor.stringFlavor)); //getData reads from clip, requires a type of Flavor.
@@ -743,14 +762,17 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
 
    private void checkLoginInfo() {
       userKeyWord = keyWord.getText();
-      // TODO: Make Dynamic
-      userPINNumber = Users.get(PIN.getSelectedItem().toString());
+      loggedInUser = PIN.getSelectedItem().toString();
+      userPINNumber = Users.get(loggedInUser);
       if (userKeyWord.length() > password.getMaxSize()) {
          userKeyWord = userKeyWord.substring(0,password.getMaxSize()); //Key should not be longer than password.
       }
       if (true) { // TODO userPINText.matches("^[0-9]{1,4}$")) { //Regex: string contains only chars 0-9 and is 1 to 4 chars long
          userInfo.setForeground(new Color(247, 233, 8)); //Same color as #BBFAF7, converted on the Internet to RGB
          userInfo.setText(userKeyWord + " " + Integer.toString(userPINNumber));
+         // This mainly for updating last used user.
+         writeOptions();
+
          remove(openingPanel);
          add(encryptionPanel);
 
