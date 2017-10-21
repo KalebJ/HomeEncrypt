@@ -42,6 +42,10 @@ public class Encryption {
       this.userPIN = PIN;
    }
 
+   public int getUserPIN () {
+      return userPIN;
+   }
+
    public String getKey () {
       return keyWord.toString();
    }

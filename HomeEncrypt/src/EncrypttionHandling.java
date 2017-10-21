@@ -11,10 +11,15 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
 import java.util.HashMap;
 import java.util.Map;
 
 import javax.swing.*;
+
+// TODO Convert all anonymous functions to lambda expressions.
 
 /*  Local Password Manager
  *  Kaleb Jacobsen
@@ -38,7 +43,7 @@ import javax.swing.*;
  */
 
 
-class BgPanel extends JPanel { //BgPanel will be called behind EncryptionWorkspace and displays the background.
+class BgPanel extends JPanel { //BgPanel will be called behind WindowManager and displays the background.
    private static final long serialVersionUID = 1L; //Do not know what serial means, but added to satisfy warnings.
    private File backgroundImageLocation = new File("HomeEncryptBG2.jpg");
    @Override
@@ -56,113 +61,113 @@ class BgPanel extends JPanel { //BgPanel will be called behind EncryptionWorkspa
    }
 }
 
-class EncryptionWorkspace extends JPanel { //This is the primary class for displaying the GUI and calling Encryption commands
-   private static final long serialVersionUID = 1L;
-   private final String LENGTHARG = "_L:";
-   private final String NOSPECIALARG = "_NSP";
+class WindowManager {
+   //This is the primary class for displaying the GUI and calling Encryption commands
+   static MovableFrame window = new MovableFrame();
+   LoginScreen loginScreen;
+   EncryptionScreen encryptionScreen;
 
-   private String loggedInUser = "";
+   public WindowManager() {
+      WindowListener exitListener = new WindowAdapter() {
+         public void windowClosing(WindowEvent e) {
+            //TODO Do any saving here
+            System.exit(0);
+         }
+      };
+      window.addWindowListener(exitListener);
+      loginScreen = new LoginScreen();
 
-   private JPanel openingPanel = new JPanel();
-   private JPanel encryptionPanel = new JPanel();
-   private JPanel newUserPanel = new JPanel();
-   private JPanel optionsPanel = new JPanel();
-   private JPanel archiveEditPanel = new JPanel();
-   private JLabel userInfo = new JLabel();
+      //window.setOpaque(false); //All components in the WindowManager should not be opaque, as there is a background I want to show through placed behind it.
+      window.add(loginScreen);
+      window.setVisible(true);
+   }
 
-   final private JTextField keyWord = new JTextField(10);
-   final private JComboBox<String> PIN = new JComboBox();
-   final private JTextField encryptionTextbox = new JTextField(15);
-   final private JTextField sizeOptionField = new JTextField(2);
-   final private JTextField newUserNameField = new JTextField(10);
-   final private JTextField newUserPINField = new JTextField(10);
+   class LoginScreen extends Screen {
 
-   private Font encryptionFont = new Font("DialogInput",Font.PLAIN,14);
+      int userPINNumber = 1234;
+      String userKeyWord = "Default";
 
-   private JRadioButton clipYes = new JRadioButton("<HTML><font color = '#BBFAF7'>Yes</font></html>");
-   private JRadioButton clipNo = new JRadioButton("<HTML><font color = '#BBFAF7'>No</font></html>");
-   private JRadioButton symYes = new JRadioButton ("<HTML><font color = '#BBFAF7'>Yes</font></html>");
-   private JRadioButton symNo = new JRadioButton ("<HTML><font color = '#BBFAF7'>No</font></html>");
+      final private JTextField keyWord = new JTextField(10);
 
-   private JCheckBox staticLength = new JCheckBox ("<HTML><font color = '#BBFAF7'>Static?</font></html>");
+      JPanel userWord;
+      JPanel userPIN;
+      JPanel userOk;
 
-   private JButton exitHome;
-   private JButton exit;
-   private JButton newUserSave;
-   private JButton newUserCancel;
+      JComboBox<String> PIN;
 
-   private File plainTextArchive, plainTextUsers, exitButtonImage;
-   private SortedSet<String> archivedText = new TreeSet<String>();
-   private Map<String, Integer> Users = new HashMap<String, Integer>();
+      JButton exitHome;
+      JButton userLogin;
+      JButton newUser;
 
-   private JComboBox<String> plainComboBox;
-   private JComboBox<String> editArchive;
+      GridBagConstraints c1 = new GridBagConstraints();
 
-   private String userKeyWord = "Default";
-   private String userName = "Default";
-   private String saveArgText = null;
-   private boolean clipboardBehavior = true;
-   private boolean isFirstEncrypt = true;
-   private boolean individualLength = false;
-   private int userPINNumber = 1234;
-   private int saveMaxSize;
-   private int saveEditIndex = 0;
-   private int firstArgumentIndex = 0; //Used for determining where arguments begin so only plaintext is used.
+      public LoginScreen() {
+         setOpaque(false);
+         Global.loadOptions();  //Pulls all options from a text file, does nothing if the file does not exist (default values written into constructors)
+         Global.loadArchive();  //Pulls all old text, does nothing if the file does not exist (The program will create the file later)
 
-   private Encryption password = new Encryption();
-   private StringBuilder secondLevelKey = new StringBuilder();
+         PIN = new JComboBox();
 
-   private Clipboard clip = Toolkit.getDefaultToolkit().getSystemClipboard();
-   private Action clipKey = new ClipAction();
+         for (String pin : Global.PINS) {
+            PIN.addItem(pin);
+         }
 
-   @SuppressWarnings({ "unchecked", "rawtypes" })
-      EncryptionWorkspace() {
-         setOpaque(false); //All components in the EncryptionWorkspace should not be opaque, as there is a background I want to show through placed behind it.
-         loadOptions();  //Pulls all options from a text file, does nothing if the file does not exist (default values written into constructors)
-         loadArchive();  //Pulls all old text, does nothing if the file does not exist (The program will create the file later)
-
-         plainComboBox = new JComboBox(archivedText.toArray());
-         plainComboBox.setMaximumRowCount(6);
-
-         encryptionTextbox.setFont(encryptionFont);
-
-         openingPanel.setOpaque(false);
-         openingPanel.setLayout (new GridBagLayout());
-         GridBagConstraints c3 = new GridBagConstraints();
-         GridBagConstraints c5 = new GridBagConstraints();
-         JButton userLogin = new JButton("Login");
+         userLogin = new JButton("Login");
          userLogin.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
-               checkLoginInfo();
+               userKeyWord = keyWord.getText();
+               Global.loggedInUser = PIN.getSelectedItem().toString();
+               userPINNumber = Global.Users.get(Global.loggedInUser);
+               if (userKeyWord.length() > Global.password.getMaxSize()) {
+                  userKeyWord = userKeyWord.substring(0,Global.password.getMaxSize()); //Key should not be longer than password.
+               }
+               if (true) {
+                  // TODO userPINText.matches("^[0-9]{1,4}$") {} //Regex: string contains only chars 0-9 and is 1 to 4 chars long
+                  // This mainly for updating last used user.
+                  Global.writeOptions();
+
+                  Encryption password = new Encryption();
+                  password.setKey(userKeyWord); //Key not set in password's constructor, first time userKeyWord is passed.
+                  password.setUserPIN(userPINNumber);
+
+                  // TODO Make this unnamed
+                  encryptionScreen = new EncryptionScreen(password);
+
+                  WindowManager.SwitchScreens(loginScreen, encryptionScreen);
+
+                  repaint(); //Both commands are needed any time I remove and add during runtime. Forces objects to display correctly.
+                  revalidate();
+               } else {
+                  JOptionPane.showMessageDialog(loginScreen, "The PIN must be a number shorter than 5 digits");
+               }
             }
          });
 
-         JButton newUser = new JButton("New User");
-         newUser.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent ae) {
-               makeNewUser();
-            }
+         newUser = new JButton("New User");
+         newUser.addActionListener((ActionEvent e) -> {
+               WindowManager.SwitchScreens(loginScreen, new NewUserScreen(this));
          });
 
-         JPanel userWord = new JPanel();
+         userWord = new JPanel();
          userWord.setOpaque(false);
          userWord.setLayout(new FlowLayout());
          userWord.add (new JLabel("<HTML><font color = '#BBFAF7'>Key Word: </font></html>"));
          userWord.add(keyWord);
 
-         JPanel userPIN = new JPanel();
+         userPIN = new JPanel();
          userPIN.setOpaque(false);
          userPIN.setLayout(new FlowLayout());
          userPIN.add(new JLabel("<HTML><font color = '#BBFAF7'>User: </font></html>")); //HTML can be used in strings, had trouble using tags that were divided: "<tag>" + var + "</tag>"
          userPIN.add(PIN);
-         JPanel userOk = new JPanel();
+
+         userOk = new JPanel();
          userOk.setOpaque(false);
          userOk.add(userLogin);
          userOk.add(newUser);
 
-         exitButtonImage = new File("HomeEncryptExitRollover.PNG");
-         if (exitButtonImage.exists() && !exitButtonImage.isHidden()){
-            ImageIcon exitIcon = new ImageIcon(exitButtonImage.getPath());
+
+         if (Global.exitButtonImage.exists() && !Global.exitButtonImage.isHidden()){
+            ImageIcon exitIcon = new ImageIcon(Global.exitButtonImage.getPath());
             exitHome = new JButton("",exitIcon); //Quit program
             exitHome.setRolloverIcon(new ImageIcon("HomeEncryptExitRollover.PNG"));
             exitHome.setBorderPainted(false); //removes border
@@ -172,75 +177,91 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
          }
          exitHome.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
-               writeArchive();
+               Global.writeArchive();
                System.exit(0);
             }
          });
          exitHome.setOpaque(false);
          exitHome.setContentAreaFilled(false); //removes gray area in background
 
-         c5.weightx = .25;
-         c5.gridx = 2;
-         c5.gridy = 0;
-         c5.gridwidth = 1;
-         c5.fill = GridBagConstraints.NONE;
-         c5.anchor = GridBagConstraints.EAST; //If extra space is present, where should this anchor
-         c5.insets.set(0,0,0,0);
-         openingPanel.add(exitHome, c5);
+         c1.weightx = .25;
+         c1.gridx = 2;
+         c1.gridy = 0;
+         c1.gridwidth = 1;
+         c1.fill = GridBagConstraints.HORIZONTAL;
+         c1.anchor = GridBagConstraints.EAST; //If extra space is present, where should this anchor
+         c1.insets.set(0,0,0,0);
+         add(exitHome, c1);
 
-         c3.gridy = 0;
-         c3.gridx = 0;
-         c3.insets.set(25, 0, 0, 0);
-         openingPanel.add(userWord, c3);
-         c3.gridy = 1;
-         c3.insets.set(3,0,0,0);
-         openingPanel.add(userPIN, c3);
-         c3.gridy = 2;
-         openingPanel.add(userOk, c3);
+         c1.fill = GridBagConstraints.HORIZONTAL;
+         c1.anchor = GridBagConstraints.SOUTH; //If extra space is present, where should this anchor
+         c1.gridx = 0;
+         c1.gridy = 1;
+         c1.insets.set(25, 0, 0, 0);
+         add(userWord, c1);
+         c1.gridy = 2;
+         c1.insets.set(3,0,0,0);
+         add(userPIN, c1);
+         c1.gridy = 3;
+         add(userOk, c1);
+      }
 
-         add(openingPanel);
+      private void updateUsers() {
+         PIN.removeAllItems();
+         for (String user : Global.Users.keySet()) {
+            PIN.addItem(user);
+         }
+      }
 
-         encryptionPanel.setLayout(new GridBagLayout());
-         GridBagConstraints c = new GridBagConstraints(); //Constraints are used to adjust items added to GridBagLayout, see below
-         encryptionPanel.setOpaque(false);
-         encryptionPanel.setPreferredSize(new Dimension(300,170));
+      @Override
+      void update() {
+         updateUsers();
+      }
+   }
 
-         newUserPanel.setLayout(new GridBagLayout());
-         GridBagConstraints newUserC = new GridBagConstraints();
-         newUserPanel.setOpaque(false);
-         newUserPanel.setPreferredSize(new Dimension(300, 170));
+   class EncryptionScreen extends Screen {
+
+      private JButton exit;
+      private String userName = "Default";
+      GridBagConstraints c;
+      JComboBox<String> plainComboBox;
+      SortedSet<String> archivedText = new TreeSet<String>();
+      private JTextField encryptionTextbox = new JTextField(15);
+      JComboBox<String> editArchive;
+      private boolean isFirstEncrypt = true;
+      JLabel userInfo = new JLabel();
+      JButton grabClipboardText;
+      private Action clipKey;
+      JPanel encryptResult = new JPanel();
 
 
-         newUserCancel = new JButton("Cancel");
-         newUserCancel.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-               SwitchScreens(newUserPanel, openingPanel);
-            }
-         });
-         newUserSave = new JButton("Save");
-         newUserSave.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-               Users.put(newUserNameField.getText(), Integer.parseInt(newUserPINField.getText()));
-               updateUsers();
-               writeUserArchive();
-               SwitchScreens(newUserPanel, openingPanel);
-            }
-         });
-
-         newUserC.gridy = 0;
-         newUserPanel.add(new JLabel("<HTML><font color = '#BBFAF7'>Username: </font></html>"), newUserC);
-         newUserPanel.add(newUserNameField, newUserC);
-         newUserC.gridy = 1;
-         newUserPanel.add(new JLabel("<HTML><font color = '#BBFAF7'>PIN: </font></html>"), newUserC);
-         newUserPanel.add(newUserPINField, newUserC);
-         newUserC.gridy = 2;
-         newUserPanel.add(newUserCancel, newUserC);
-         newUserPanel.add(newUserSave, newUserC);
-
+      public EncryptionScreen(Encryption password) {
+         setOpaque(false);
+         setLayout(new GridBagLayout());
+         setPreferredSize(new Dimension(300,170));
+         c = new GridBagConstraints(); //Constraints are used to adjust items added to GridBagLayout, see below
+         plainComboBox = new JComboBox(archivedText.toArray());
+         plainComboBox.setMaximumRowCount(6);
          plainComboBox.setEditable(true); //Allows new entries to be added.
+         encryptionTextbox.setFont(Global.encryptionFont);
+         EncryptionScreen me = this;
+         JPanel userInfoHolder;
+
          plainComboBox.addActionListener(new ActionListener() { //Placing the listener in the ComboBox triggers the listener both when ENTER is pressed (while box is focused) and when a new item is selected. (Also applies to any setSelected calls)
+
             public void actionPerformed(ActionEvent e) {
-               plainComboBox.setSelectedItem(password.removeHTTP((String)plainComboBox.getSelectedItem()));
+               int saveMaxSize;
+               final String LENGTHARG = "_L:";
+               final String NOSPECIALARG = "_NSP";
+               plainComboBox.setSelectedItem(Global.password.removeHTTP((String)plainComboBox.getSelectedItem()));
+               int firstArgumentIndex = 0; //Used for determining where arguments begin so only plaintext is used.
+               String saveArgText = null;
+               Clipboard clip = Toolkit.getDefaultToolkit().getSystemClipboard();
+
+               userInfo.setForeground(new Color(247, 233, 8)); //Same color as #BBFAF7, converted on the Internet to RGB
+               userInfo.setText(password.getKey() + " " + password.getUserPIN());
+
+               clipKey = new ClipAction();
 
                /*What's going on below is new and takes some explaining.
                 * If there is a static size found in the plaintext in the form of _L:XX, that needs to be the size used for encryption.
@@ -268,7 +289,7 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
 
                if(((String)plainComboBox.getSelectedItem()).contains(LENGTHARG) || ((String)plainComboBox.getSelectedItem()).contains(NOSPECIALARG)) {
 
-                  saveMaxSize = password.getMaxSize(); //Regardless of the action below, remember the max size.
+                  saveMaxSize = Global.password.getMaxSize(); //Regardless of the action below, remember the max size.
 
                   if (((String)plainComboBox.getSelectedItem()).contains(LENGTHARG) && ((String)plainComboBox.getSelectedItem()).contains(NOSPECIALARG)) {
                      if (((String)plainComboBox.getSelectedItem()).indexOf(LENGTHARG) > ((String)plainComboBox.getSelectedItem()).indexOf(NOSPECIALARG)) {
@@ -286,100 +307,99 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
                   saveArgText = ((String)plainComboBox.getSelectedItem()).substring(firstArgumentIndex);
 
                   if (((String)plainComboBox.getSelectedItem()).contains(LENGTHARG)){
-                     password.setMaxSize(Integer.parseInt((((String)plainComboBox.getSelectedItem()).substring(((String)plainComboBox.getSelectedItem()).indexOf(LENGTHARG)+3, ((String)plainComboBox.getSelectedItem()).indexOf(LENGTHARG)+5))));
-                     if (password.getSymbolStatus() == false && !((String)plainComboBox.getSelectedItem()).contains(NOSPECIALARG)) {
+                     Global.password.setMaxSize(Integer.parseInt((((String)plainComboBox.getSelectedItem()).substring(((String)plainComboBox.getSelectedItem()).indexOf(LENGTHARG)+3, ((String)plainComboBox.getSelectedItem()).indexOf(LENGTHARG)+5))));
+                     if (Global.password.getSymbolStatus() == false && !((String)plainComboBox.getSelectedItem()).contains(NOSPECIALARG)) {
                         saveArgText = saveArgText + NOSPECIALARG;
                      }
                   }
                   if (((String)plainComboBox.getSelectedItem()).contains(NOSPECIALARG)) {
-                     password.requireSymbol(false);
-                     if (individualLength && !((String)plainComboBox.getSelectedItem()).contains(LENGTHARG)) {
-                        saveArgText = saveArgText + LENGTHARG + password.getMaxSize();
+                     Global.password.requireSymbol(false);
+                     if (Global.individualLength && !((String)plainComboBox.getSelectedItem()).contains(LENGTHARG)) {
+                        saveArgText = saveArgText + LENGTHARG + Global.password.getMaxSize();
                      }
 
                   }
 
                   plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()).substring(0,firstArgumentIndex));
-                  if (((String)plainComboBox.getSelectedItem()).length() > password.getMaxSize()) { //If longer than allowed, shorten the string. (HTTP removed before counting)
-                     plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()).substring(0,password.getMaxSize()));
+                  if (((String)plainComboBox.getSelectedItem()).length() > Global.password.getMaxSize()) { //If longer than allowed, shorten the string. (HTTP removed before counting)
+                     plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()).substring(0,Global.password.getMaxSize()));
                   }
 
-                  encryptionTextbox.setText(password.getEncryption((String)plainComboBox.getSelectedItem()));
+                  encryptionTextbox.setText(Global.password.getEncryption((String)plainComboBox.getSelectedItem()));
 
-                  password.requireSymbol(true);
+                  Global.password.requireSymbol(true);
                   plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()) + saveArgText);
-                  password.setMaxSize(saveMaxSize);
+                  Global.password.setMaxSize(saveMaxSize);
 
                } else {
-                  if (((String)plainComboBox.getSelectedItem()).length() > password.getMaxSize()) { //If longer than allowed, shorten the string. (HTTP removed before counting)
-                     plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()).substring(0,password.getMaxSize()));
+                  if (((String)plainComboBox.getSelectedItem()).length() > Global.password.getMaxSize()) { //If longer than allowed, shorten the string. (HTTP removed before counting)
+                     plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()).substring(0,Global.password.getMaxSize()));
                   }
 
-                  encryptionTextbox.setText(password.getEncryption((String)plainComboBox.getSelectedItem()));
+                  encryptionTextbox.setText(Global.password.getEncryption((String)plainComboBox.getSelectedItem()));
 
-                  if (individualLength) {
-                     if (password.getMaxSize() < 10) {
-                        plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()) + LENGTHARG + "0" + password.getMaxSize());
+                  if (Global.individualLength) {
+                     if (Global.password.getMaxSize() < 10) {
+                        plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()) + LENGTHARG + "0" + Global.password.getMaxSize());
                      } else {
-                        plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()) + LENGTHARG + password.getMaxSize());
+                        plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()) + LENGTHARG + Global.password.getMaxSize());
                      }
                   }
 
-                  if (password.getSymbolStatus() == false) {
+                  if (Global.password.getSymbolStatus() == false) {
                      plainComboBox.setSelectedItem(((String)plainComboBox.getSelectedItem()) + NOSPECIALARG);
                   }
                }
-
+//
                if (!archivedText.contains(plainComboBox.getSelectedItem())) { //If not in the archive: add to the archive, ComboBox list and list of items that can be deleted.
                   archivedText.add((String)plainComboBox.getSelectedItem());
-                  editArchive.addItem((String)plainComboBox.getSelectedItem());
+                  //TODO
+                  //editArchive.addItem((String)plainComboBox.getSelectedItem());
                   plainComboBox.addItem((String)plainComboBox.getSelectedItem());
                }
 
-               if (clipboardBehavior) { //If allowed to access the clipboard, place the text there
+               if (Global.clipboardBehavior) { //If allowed to access the clipboard, place the text there
                   clip.setContents(new StringSelection(encryptionTextbox.getText()), null); //StringSlection converts Strings to Transferable data
                }
 
                if (isFirstEncrypt) {
-                  userInfo.setText("****** " + Integer.toString(userPINNumber));
+                  userInfo.setText("****** " + password.getUserPIN());
                   isFirstEncrypt = false;
                }
             }
          });
 
-         JButton grabClipboardText = new JButton("Clipboard");
+         grabClipboardText = new JButton("Clipboard");
          grabClipboardText.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
-               loadFromClipboard();
+               Global.loadFromClipboard();
             }
          });
-         //Below maps the insert key to the action "clipAction". The addition to the ActionMap then tells the button what
-         //"clipAction" should do. clipKey has the same action as clicking the button, but the button's default actionlistener
-         //will not actually trigger.
+         // Below maps the insert key to the action "clipAction". The addition to the ActionMap then tells the button what
+         // "clipAction" should do. clipKey has the same action as clicking the button, but the button's default actionlistener
+         // will not actually trigger.
          grabClipboardText.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("INSERT"), "clipAction");
          grabClipboardText.getActionMap().put("clipAction", clipKey);
 
          JButton options = new JButton("Options");
          options.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
-               remove(encryptionPanel);
-               add(optionsPanel);
+               WindowManager.SwitchScreens(me, new OptionsScreen(password, me));
 
-               repaint();
-               revalidate();
-               sizeOptionField.setText(String.valueOf(password.getMaxSize()));
-
-               staticLength.setSelected(individualLength);
-
-               clipYes.setSelected(clipboardBehavior); //Setting radio buttons based on loaded options
-               clipNo.setSelected(!clipboardBehavior);
-
-               symYes.setSelected(password.getSymbolStatus());
-               symNo.setSelected(!password.getSymbolStatus());
+               // TODO reenable this behavior?
+               //sizeOptionField.setText(String.valueOf(password.getMaxSize()));
+//
+               //staticLength.setSelected(Global.individualLength);
+//
+               //clipYes.setSelected(Global.clipboardBehavior); //Setting radio buttons based on loaded options
+               //clipNo.setSelected(!Global.clipboardBehavior);
+//
+               //symYes.setSelected(password.getSymbolStatus());
+               //symNo.setSelected(!password.getSymbolStatus());
             }
          });
 
-         JPanel userInfoHolder = new JPanel();
+         userInfoHolder = new JPanel();
          userInfoHolder.setOpaque(false);
          userInfoHolder.setLayout(new BorderLayout());
          userInfoHolder.add(userInfo, BorderLayout.CENTER);
@@ -390,9 +410,9 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
          plainText.add (new JLabel("<HTML><font color = '#BBFAF7'>Plain Text: </font></html>"));
          plainText.add(plainComboBox);
 
-         exitButtonImage = new File("HomeEncryptExitRollover.PNG");
-         if (exitButtonImage.exists() && !exitButtonImage.isHidden()){
-            ImageIcon exitIcon = new ImageIcon(exitButtonImage.getPath());
+         Global.exitButtonImage = new File("HomeEncryptExitRollover.PNG");
+         if (Global.exitButtonImage.exists() && !Global.exitButtonImage.isHidden()){
+            ImageIcon exitIcon = new ImageIcon(Global.exitButtonImage.getPath());
             exit = new JButton("",exitIcon); //Quit program
             exit.setRolloverIcon(new ImageIcon("HomeEncryptExitRollover.PNG"));
             exit.setBorderPainted(false); //removes border
@@ -402,14 +422,13 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
          }
          exit.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
-               writeArchive();
+               Global.writeArchive();
                System.exit(0);
             }
          });
          exit.setOpaque(false);
          exit.setContentAreaFilled(false); //removes gray area in background
 
-         JPanel encryptResult = new JPanel();
          encryptResult.setOpaque(false);
          encryptResult.setLayout(new GridLayout(2,1));
          encryptResult.add (new JLabel("<HTML><font color = '#BBFAF7'>Result: </font></html>"));
@@ -422,14 +441,14 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
          c.gridwidth = 5; //Units on grid this should occupy. Had some trouble making this work right, not sure why.
          c.weightx = .25;
          c.insets.set(0,spacingTest,0,0);
-         encryptionPanel.add(userInfoHolder, c); //Always add the component and the constraints
+         me.add(userInfoHolder, c); //Always add the component and the constraints
          c.weightx = .25;
          c.gridx = 5;
          c.gridwidth = 1;
          c.fill = GridBagConstraints.NONE;
          c.anchor = GridBagConstraints.EAST; //If extra space is present, where should this anchor
          c.insets.set(0,0,0,0);
-         encryptionPanel.add(exit, c);
+         me.add(exit, c);
          c.anchor = GridBagConstraints.CENTER;
          c.fill = GridBagConstraints.HORIZONTAL;
          c.weightx = 1;
@@ -437,20 +456,44 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
          c.gridwidth = 6;
          c.gridy = 1;
          c.insets.set(0,spacingTest,0,spacingTest);
-         encryptionPanel.add(plainText, c);
+         me.add(plainText, c);
          c.gridy = 2;
-         encryptionPanel.add(encryptResult, c);
+         me.add(encryptResult, c);
          c.gridy = 3;
          c.gridwidth = 3;
          c.insets.set(0,spacingTest,20,0);
-         encryptionPanel.add(grabClipboardText, c);
+         me.add(grabClipboardText, c);
          c.gridx = 3;
          c.insets.set(0,0,20,spacingTest);
-         encryptionPanel.add(options, c);
+         me.add(options, c);
+      }
 
-         optionsPanel.setOpaque(false);
-         optionsPanel.setLayout(new GridBagLayout());
-         GridBagConstraints c4 = new GridBagConstraints();
+      @Override
+      void update()
+      {
+
+      }
+
+   }
+
+   class OptionsScreen extends Screen {
+      private JRadioButton clipYes = new JRadioButton("<HTML><font color = '#BBFAF7'>Yes</font></html>");
+      private JRadioButton clipNo = new JRadioButton("<HTML><font color = '#BBFAF7'>No</font></html>");
+      private JRadioButton symYes = new JRadioButton ("<HTML><font color = '#BBFAF7'>Yes</font></html>");
+      private JRadioButton symNo = new JRadioButton ("<HTML><font color = '#BBFAF7'>No</font></html>");
+      final private JTextField sizeOptionField = new JTextField(2);
+      private JCheckBox staticLength = new JCheckBox ("<HTML><font color = '#BBFAF7'>Static?</font></html>");
+      JPanel optionsButtons = new JPanel();
+      JPanel symbolOption = new JPanel();
+      JButton saveOptions = new JButton ("Save");
+      JButton editOption = new JButton ("Edit Archive");
+      OptionsScreen me = this;
+
+      public OptionsScreen(Encryption password, EncryptionScreen caller) {
+         setOpaque(false);
+         setLayout(new GridBagLayout());
+         GridBagConstraints c = new GridBagConstraints();
+         optionsButtons.setOpaque(false);
 
          JPanel maxSizeOption = new JPanel();
          maxSizeOption.setOpaque(false);
@@ -459,7 +502,7 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
          staticLength.setOpaque(false);
          staticLength.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-               individualLength = staticLength.isSelected();
+               Global.individualLength = staticLength.isSelected();
             }
          });
          maxSizeOption.add(staticLength);
@@ -470,22 +513,16 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
          ButtonGroup clipButtons = new ButtonGroup(); //Buttons must be added to the panel AND buttonGroup. Only one option in a buttonGroup can be active
          clipYes.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
-               clipboardBehavior = true;
+               Global.clipboardBehavior = true;
             }
          });
          clipYes.setOpaque(false);
          clipNo.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent ae) {
-               clipboardBehavior = false;
+               Global.clipboardBehavior = false;
             }
          });
-         clipNo.setOpaque(false);
-         clipButtons.add(clipYes);
-         clipButtons.add(clipNo);
-         clipboardOption.add(clipYes);
-         clipboardOption.add(clipNo);
 
-         JPanel symbolOption = new JPanel();
          symbolOption.setOpaque(false);
          symbolOption.add(new JLabel("<HTML><font color = '#BBFAF7'>Require a symbol?</font></html>"));
          ButtonGroup symButtons = new ButtonGroup();
@@ -500,303 +537,226 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
                password.requireSymbol(false);
             }
          });
-         symNo.setOpaque(false);
-         symButtons.add(symYes);
-         symButtons.add(symNo);
-         symbolOption.add(symYes);
-         symbolOption.add(symNo);
 
-         JPanel optionsButtons = new JPanel();
-         optionsButtons.setOpaque(false);
-
-         JButton saveOptions = new JButton ("Save");
          saveOptions.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                if (sizeOptionField.getText().matches("^[0-9]{0,99}$")) { //Regex, must be a digit
                   if (Integer.parseInt(sizeOptionField.getText()) < 99) {
                      if(Integer.parseInt(sizeOptionField.getText()) > 5) {
                         password.setMaxSize(Integer.parseInt(sizeOptionField.getText()));
-                        writeOptions();
-                        remove(optionsPanel);
-                        add(encryptionPanel);
+                        Global.writeOptions();
+                        Global.writeArchive();
 
-                        writeArchive();
-
-                        repaint();
-                        revalidate();
+                        WindowManager.SwitchScreens(me, caller);
                      } else {
-                        JOptionPane.showMessageDialog(optionsPanel, "Error: passwords must be 6 characters or more");
+                        JOptionPane.showMessageDialog(me, "Error: passwords must be 6 characters or more");
                      }
                   } else {
-                     JOptionPane.showMessageDialog(optionsPanel, "Error: passwords cannot be longer than 99 characters");
+                     JOptionPane.showMessageDialog(me, "Error: passwords cannot be longer than 99 characters");
                   }
                } else {
-                  JOptionPane.showMessageDialog(optionsPanel, "Error: Must enter a valid number");
+                  JOptionPane.showMessageDialog(me, "Error: Must enter a valid number");
                }
             }
          });
-
-         JButton editOption = new JButton ("Edit Archive");
          editOption.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-               remove(optionsPanel);
-               add(archiveEditPanel);
-
-               repaint();
-               revalidate();
+               // TODO
+               //remove(optionsPanel);
+               //add(archiveEditPanel);
+//
+               //repaint();
+               //revalidate();
             }
          });
 
          optionsButtons.add(saveOptions);
          optionsButtons.add(editOption);
 
-         c4.insets.set(10,0,0,0);
-         c4.gridy = 0;
-         optionsPanel.add(maxSizeOption, c4);
-         c4.insets.set(0,0,0,0);
-         c4.gridy = 1;
-         optionsPanel.add(clipboardOption, c4);
-         c4.gridy = 2;
-         optionsPanel.add(symbolOption, c4);
-         c4.gridy = 3;
-         optionsPanel.add (optionsButtons, c4);
-         c4.gridy = 4;
+         symNo.setOpaque(false);
+         symButtons.add(symYes);
+         symButtons.add(symNo);
+         symbolOption.add(symYes);
+         symbolOption.add(symNo);
 
-         archiveEditPanel.setOpaque(false);
-         archiveEditPanel.setLayout(new GridBagLayout());
-         GridBagConstraints c2 = new GridBagConstraints(); //Could have used the existing C, but wanted to keep both separate
+         c.insets.set(10,0,0,0);
+         c.gridy = 0;
+         add(maxSizeOption, c);
+         c.insets.set(0,0,0,0);
+         c.gridy = 1;
+         add(clipboardOption, c);
+         c.gridy = 2;
+         add(symbolOption, c);
+         c.gridy = 3;
+         add (optionsButtons, c);
+         c.gridy = 4;
 
-         JButton backToOptions = new JButton("Back");
-         backToOptions.addActionListener(new ActionListener() {
+      }
+
+      @Override
+      void update() {
+         
+      }
+   }
+
+   class NewUserScreen extends Screen {
+      private JTextField newUserNameField = new JTextField(10);
+      private JTextField newUserPINField = new JTextField(10);
+      private JButton newUserSave;
+      private JButton newUserCancel;
+      private NewUserScreen me = this;
+
+      public NewUserScreen(Screen caller) {
+         setLayout(new GridBagLayout());
+         GridBagConstraints c = new GridBagConstraints();
+         setOpaque(false);
+         setPreferredSize(new Dimension(300, 170));
+
+         newUserCancel = new JButton("Cancel");
+         newUserCancel.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-               remove(archiveEditPanel);
-               add(optionsPanel);
-
-               repaint();
-               revalidate();
+               WindowManager.SwitchScreens(me, caller);
+            }
+         });
+         newUserSave = new JButton("Save");
+         newUserSave.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+               Global.Users.put(newUserNameField.getText(), Integer.parseInt(newUserPINField.getText()));
+               Global.writeUserArchive();
+               WindowManager.SwitchScreens(me, caller);
             }
          });
 
-         editArchive = new JComboBox(archivedText.toArray());
-
-         JButton removeSelection = new JButton ("Remove Entry");
-         removeSelection.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-               if(editArchive.getItemCount() > 1) {
-                  saveEditIndex = editArchive.getSelectedIndex();
-                  archivedText.remove(editArchive.getSelectedItem());
-                  plainComboBox.removeItem(editArchive.getSelectedItem());
-
-                  editArchive.removeItem(editArchive.getSelectedItem());
-                  if (saveEditIndex == 0) {
-                     editArchive.setSelectedIndex(0);
-                  } else {
-                     editArchive.setSelectedIndex(saveEditIndex-1);
-                  }
-               } else {
-                  JOptionPane.showMessageDialog(archiveEditPanel, "Error: Cannot remove last entry");
-               }
-            }
-         });
-
-         JPanel editButtons = new JPanel();
-         editButtons.add(backToOptions);
-         editButtons.add(removeSelection);
-         editButtons.setOpaque(false);
-
-         c2.gridy = 0;
-         c2.insets.set(25,0,0,0); //Insets set how much of a gap is left between components. Values go Top, Left, Bottom, Right
-         archiveEditPanel.add (editArchive, c2);
-         c2.gridy = 1;
-         c2.insets.set(10,0,0,0);
-         archiveEditPanel.add(editButtons, c2);
+         c.gridy = 0;
+         add(new JLabel("<HTML><font color = '#BBFAF7'>Username: </font></html>"), c);
+         add(newUserNameField, c);
+         c.gridy = 1;
+         add(new JLabel("<HTML><font color = '#BBFAF7'>PIN: </font></html>"), c);
+         add(newUserPINField, c);
+         c.gridy = 2;
+         add(newUserCancel, c);
+         add(newUserSave, c);
       }
 
-   private void loadOptions() {
+      @Override
+      void update() {
 
-      try {
-         File optionFile = new File("options.txt");
-         if (optionFile.exists()) {
-            DataInputStream in = new DataInputStream (new FileInputStream(optionFile)); //DataInput gives useful methods, but requires a FileInput to construct
-            password.setMaxSize(Integer.parseInt(in.readUTF())); //readUTF, reads in next available String
-            this.clipboardBehavior = Boolean.parseBoolean(in.readUTF());
-            password.requireSymbol(Boolean.parseBoolean(in.readUTF()));
-            loggedInUser = in.readUTF();
-            in.close();
-
-         }
-      }
-      catch(IOException e) {
-      }
-   }
-
-   private void writeOptions() {
-      try {
-         File optionFile = new File("options.txt");
-         DataOutputStream out = new DataOutputStream (new FileOutputStream(optionFile)); //DataOutput overwrites a file instead of appending
-         out.writeUTF(String.valueOf(password.getMaxSize())); //writeUTF writes a string
-         out.writeUTF(String.valueOf(this.clipboardBehavior));
-         out.writeUTF(String.valueOf(password.getSymbolStatus()));
-         out.writeUTF(loggedInUser);
-         out.close();
-      }
-      catch(IOException e) {
       }
 
    }
 
-   private void loadArchive() {
-      try {
-         plainTextArchive = new File("plainTextArchive.txt");
-         plainTextUsers = new File("plainTextUsers.txt");
+   //private static final long serialVersionUID = 1L;
+//
+   //
+//
+   //private JPanel openingPanel = new JPanel();
+   //private JPanel encryptionPanel = new JPanel();
+   //private JPanel optionsPanel = new JPanel();
+   //private JPanel archiveEditPanel = new JPanel();
+//
+//
+//
+//
+//
+//
+//
+//
+   ////private boolean clipboardBehavior = true;
+   //private int saveEditIndex = 0;
+//
+//
 
-         if (plainTextUsers.canRead()) {
-            BufferedReader in = new BufferedReader(new FileReader(plainTextUsers));
-            String line = in.readLine();
-            while (line != null) {
-               String lineSplit[] = line.split("\\\\s");
-               Users.put(lineSplit[0], Integer.parseInt(lineSplit[1]));
-               PIN.addItem(lineSplit[0]);
-               line = in.readLine();
-               // TODO: Make sure if the file is corrupted it doesn't cause a crash.
-            }
-            PIN.setSelectedItem(loggedInUser);
-         } else {
-            FileWriter fstream = new FileWriter("plainTextUsers.txt");
-            fstream.write("");
-         }
+   //@SuppressWarnings({ "unchecked", "rawtypes" })
+      //WindowManager() {
+//
+//
+//
 
 
-         DataInputStream in = new DataInputStream(new FileInputStream(plainTextArchive));
+//
+//
+         //clipNo.setOpaque(false);
+         //clipButtons.add(clipYes);
+         //clipButtons.add(clipNo);
+         //clipboardOption.add(clipYes);
+         //clipboardOption.add(clipNo);
+//
+//
+//
+//
+//
+//
+//
+         //archiveEditPanel.setOpaque(false);
+         //archiveEditPanel.setLayout(new GridBagLayout());
+         //GridBagConstraints c2 = new GridBagConstraints(); //Could have used the existing C, but wanted to keep both separate
+//
+         //JButton backToOptions = new JButton("Back");
+         //backToOptions.addActionListener(new ActionListener() {
+            //public void actionPerformed(ActionEvent e) {
+               //remove(archiveEditPanel);
+               //add(optionsPanel);
+//
+               //repaint();
+               //revalidate();
+            //}
+         //});
+//
+         //editArchive = new JComboBox(archivedText.toArray());
+//
+         //JButton removeSelection = new JButton ("Remove Entry");
+         //removeSelection.addActionListener(new ActionListener() {
+            //public void actionPerformed(ActionEvent e) {
+               //if(editArchive.getItemCount() > 1) {
+                  //saveEditIndex = editArchive.getSelectedIndex();
+                  //archivedText.remove(editArchive.getSelectedItem());
+                  //plainComboBox.removeItem(editArchive.getSelectedItem());
+//
+                  //editArchive.removeItem(editArchive.getSelectedItem());
+                  //if (saveEditIndex == 0) {
+                     //editArchive.setSelectedIndex(0);
+                  //} else {
+                     //editArchive.setSelectedIndex(saveEditIndex-1);
+                  //}
+               //} else {
+                  //JOptionPane.showMessageDialog(archiveEditPanel, "Error: Cannot remove last entry");
+               //}
+            //}
+         //});
+//
+         //JPanel editButtons = new JPanel();
+         //editButtons.add(backToOptions);
+         //editButtons.add(removeSelection);
+         //editButtons.setOpaque(false);
+//
+         //c2.gridy = 0;
+         //c2.insets.set(25,0,0,0); //Insets set how much of a gap is left between components. Values go Top, Left, Bottom, Right
+         //archiveEditPanel.add (editArchive, c2);
+         //c2.gridy = 1;
+         //c2.insets.set(10,0,0,0);
+         //archiveEditPanel.add(editButtons, c2);
+      //}
 
-         while (in.available() > 0) { //If there is still more, read in the next String.
-            archivedText.add(in.readUTF());
-         }
-         in.close();
-      }
-      catch (IOException e) {
-      }
-   }
-   //Duplicate for multiple files support
-   private void loadArchive(String fileName) {
-      try {
-         plainTextArchive = new File(fileName + ".txt");
-         DataInputStream in = new DataInputStream(new FileInputStream(plainTextArchive));
 
-         while (in.available() > 0) { //If there is still more, read in the next String.
-            archivedText.add(in.readUTF());
-         }
-         in.close();
-      }
-      catch (IOException e) {
-      }
-   }
 
-   private void updateUsers() {
-      PIN.removeAllItems();
-      for (String user : Users.keySet()) {
-         PIN.addItem(user);
-      }
-   }
-
-   private void writeArchive() {
-      try {
-         plainTextArchive = new File("plainTextArchive.txt");
-         DataOutputStream out = new DataOutputStream(new FileOutputStream(plainTextArchive));
-         String[] textToArchive = archivedText.toArray(new String[0]);
-         for (int i = 0; i< textToArchive.length; i++) {
-            out.writeUTF(textToArchive[i]);
-         }
-
-         out.close();
-      } catch (IOException e) {
-      }
-   }
-
-   //Duplicate for multiple files support
-   private void writeArchive(String fileName) {
-      try {
-         plainTextArchive = new File(fileName + ".txt");
-         DataOutputStream out = new DataOutputStream(new FileOutputStream(plainTextArchive));
-         String[] textToArchive = archivedText.toArray(new String[0]);
-         for (int i = 0; i< textToArchive.length; i++) {
-            out.writeUTF(textToArchive[i]);
-         }
-
-         out.close();
-      } catch (IOException e) {
-      }
-   }
-
-   private void writeUserArchive() {
-      try {
-         // Writes user file
-         // Syntax: I used a BufferedWriter because I was getting strange
-         //   results with writeUTF. We can talk about it.
-         BufferedWriter out = new BufferedWriter(new FileWriter(plainTextUsers));
-         for (String user : Users.keySet()) {
-            out.write(user + "\\s" + Users.get(user) + "\n");
-         }
-         out.close();
-      } catch (IOException e) {
-      }
-   }
-
-   private void loadFromClipboard() {
-      try {
-         plainComboBox.setSelectedItem(clip.getData(DataFlavor.stringFlavor)); //getData reads from clip, requires a type of Flavor.
-      } catch (UnsupportedFlavorException e) {
-         e.printStackTrace();
-      } catch (IOException e) {
-         e.printStackTrace();
-      }
-   }
 
    private class ClipAction extends AbstractAction {
       private static final long serialVersionUID = 1L;
 
       public void actionPerformed(ActionEvent ae) {
-         loadFromClipboard();
+         Global.loadFromClipboard();
       }
    }
 
    private void checkLoginInfo() {
-      userKeyWord = keyWord.getText();
-      loggedInUser = PIN.getSelectedItem().toString();
-      userPINNumber = Users.get(loggedInUser);
-      if (userKeyWord.length() > password.getMaxSize()) {
-         userKeyWord = userKeyWord.substring(0,password.getMaxSize()); //Key should not be longer than password.
-      }
-      if (true) { // TODO userPINText.matches("^[0-9]{1,4}$")) { //Regex: string contains only chars 0-9 and is 1 to 4 chars long
-         userInfo.setForeground(new Color(247, 233, 8)); //Same color as #BBFAF7, converted on the Internet to RGB
-         userInfo.setText(userKeyWord + " " + Integer.toString(userPINNumber));
-         // This mainly for updating last used user.
-         writeOptions();
-
-         remove(openingPanel);
-         add(encryptionPanel);
-
-         repaint(); //Both commands are needed any time I remove and add during runtime. Forces objects to display correctly.
-         revalidate();
-
-         password.setKey(userKeyWord); //Key not set in password's constructor, first time userKeyWord is passed.
-         password.setUserPIN(userPINNumber);
-      } else {
-         JOptionPane.showMessageDialog(openingPanel, "The PIN must be a number shorter than 5 digits");
-      }
    }
 
-   private void makeNewUser() {
-      System.out.println("Making new User!! (But not actually cause there's no code here yet)");
-      SwitchScreens(openingPanel, newUserPanel);
-   }
-
-   
+   ////private StringBuilder secondLevelKey = new StringBuilder();
   /* //Integrating into Encryption.java
    private void runDblEncryption() {
       Two levels of encryption happen here. First the plain text with the users key word. Then the plaintext with
        * the previous result set as the new key. The key is then reset to the user key.
-       
+
       secondLevelKey.replace(0, secondLevelKey.length(), password.getEncryption((String)plainComboBox.getSelectedItem()));
       password.setKey(secondLevelKey.toString());
       password.clear();
@@ -805,36 +765,34 @@ class EncryptionWorkspace extends JPanel { //This is the primary class for displ
       password.clear();
    }
 */
-   private void SwitchScreens(JPanel oldScreen, JPanel newScreen) {
-      remove(oldScreen);
-      add(newScreen);
-      repaint();
-      revalidate();
+   static void SwitchScreens(Screen oldScreen, Screen newScreen) {
+      window.remove(oldScreen);
+      window.add(newScreen);
+      newScreen.update();
+      window.repaint();
+      window.revalidate();
    }
 }
 
-class EncrypttionHandling extends JFrame{ //This class is really just used to create and display the GUI.
+class MovableFrame extends JFrame{ //This class is really just used to create and display the GUI.
 
    static Point mouseCoords;
    private static final long serialVersionUID = 1L;
+   JPanel bgPanel;
 
-   public static void main (String args[]) {
-
-      JPanel bgPanel = new BgPanel(); //Background panel, this is the reason everything else was not Opaque
+   public MovableFrame() {
+      bgPanel = new BgPanel(); //Background panel, this is the reason everything else was not Opaque
       bgPanel.setLayout(new BorderLayout());
-      bgPanel.add(new EncryptionWorkspace(), BorderLayout.CENTER);
 
-
-      final EncrypttionHandling t = new EncrypttionHandling();
-      t.setContentPane(bgPanel);
-      t.setDefaultCloseOperation(EXIT_ON_CLOSE);
-      t.setBounds(200, 200, 300, 170);
-      t.setUndecorated(true); //Removes default frame, including minimize, maximize and exit buttons
-      t.setVisible(true);
+      setContentPane(bgPanel);
+      setDefaultCloseOperation(EXIT_ON_CLOSE);
+      setBounds(200, 200, 300, 170);
+      setUndecorated(true); //Removes default frame, including minimize, maximize and exit buttons
+      setVisible(true);
 
       //Manual click and drag added to background below
-      EncrypttionHandling.mouseCoords = null;
-      t.addMouseListener(new MouseListener() {
+      mouseCoords = null;
+      addMouseListener(new MouseListener() {
          @Override
          public void mouseClicked(MouseEvent arg0) {
          }
@@ -854,11 +812,11 @@ class EncrypttionHandling extends JFrame{ //This class is really just used to cr
          }
       });
 
-      t.addMouseMotionListener(new MouseMotionListener() {
+      addMouseMotionListener(new MouseMotionListener() {
          @Override
          public void mouseDragged(MouseEvent arg0) {
             Point currCoords = arg0.getLocationOnScreen();
-            t.setLocation(currCoords.x - mouseCoords.x, currCoords.y - mouseCoords.y);
+            setLocation(currCoords.x - mouseCoords.x, currCoords.y - mouseCoords.y);
          }
          @Override
          public void mouseMoved(MouseEvent arg0) {
